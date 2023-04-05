@@ -1,4 +1,4 @@
-import { useAddress, useDisconnect, useMetamask, useNFTDrop } from "@thirdweb-dev/react";
+import { useAddress, useDisconnect, useMetamask, useContract } from "@thirdweb-dev/react";
 import { BigNumber } from "ethers";
 import { GetServerSideProps } from "next";
 import Link from "next/link";
@@ -14,7 +14,7 @@ function NFTDropPage({collection}: Props) {
     
     const [claimedSupply, setClaimedSupply ] = useState<number>(0);
     const [totalSupply, setTotalSupply ] = useState<BigNumber>();
-    const nftDrop = useNFTDrop(collection.address)
+    const {contract, isLoading, error} = useContract(collection.address);
     
 
     const connectWithMetaMask = useMetamask();
@@ -22,17 +22,20 @@ function NFTDropPage({collection}: Props) {
     const disconnect = useDisconnect();
 
     useEffect(() => {
-        if(!nftDrop) return;
+        if(!contract) return;
 
-        const fetchNftDropData = async () => {
-            const claimed = await nftDrop.getAllClaimed();
-            const total = await nftDrop.totalSupply();
+        const fetchNFTDropData = async () => {
+            const claimed = await contract.erc721.totalClaimedSupply();
+            const total = await contract.erc721.totalCount();
 
-            setClaimedSupply(claimed.length)
+            setClaimedSupply(claimed.toNumber)
             setTotalSupply(total)
         }
-        fetchNftDropData();
-    },[nftDrop])
+        fetchNFTDropData();
+    },[contract])
+    console.log(claimedSupply, totalSupply);
+    
+
   return (
     <div className="flex h-screen flex-col lg:grid lg:grid-cols-10">
         {/* Left */}
@@ -72,7 +75,7 @@ function NFTDropPage({collection}: Props) {
                 <img className="w-80 object-cover pb-10 lg:h-40" src={UrlFor(collection.mainImage).url()} alt="" />
                 <h1 className="text-3xl font-bold lg:text-5xl lg:font-extrabold">{collection.title}</h1>
 
-                <p className="pt-2 text-xl text-green-500">{claimedSupply} / {totalSupply?.toString()} NFT's claimed</p>
+                <p className="pt-2 text-xl text-green-500">{claimedSupply} / {totalSupply?.toNumber()} NFT's claimed</p>
             </div>
 
             {/* footer */}
@@ -101,8 +104,6 @@ export const getServerSideProps: GetServerSideProps = async ({ params }) => {
               slug {current},
             }
           }`
-
-    // console.log('params?.id:', params?.id);
 
     const collection = await sanityClient.fetch(query, {
         id: params?.id
